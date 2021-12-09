@@ -1,0 +1,172 @@
+HangMan exercise 1:
+
+I first played the game (with dev tools opened, so I saw the solution)
+The bug is that it displays the wrong info at the end of the game, so I looked in App.js (isGameOver, App) and GameOver.
+Anything that has to do with the game ending
+
+First in App.js > in const isGameOver:
+I placed a console.log group.
+I found out that wordWasGuessed ended up true when word was guessed and false when out of turns.
+So that part seemed ok to me.
+
+Then I read further in App.js > App > const gameOver:
+There I saw strange prop: wordGuesed={...}, wordGuesed looks like spelling mistake
+I looked up where it came from and goes to and ended up in GameOver.js:
+There was the winResult and loseResult
+And also a return based on wordGuessed (holding boolean true or false), spelled correctly here.
+if true > winResult > if false > loseResult
+But the prop passed from App.js was wordGuesed with 1 s.
+And because of 1 s:
+return props.wordGuessed ? winResult : loseResult; will always return false
+Solution:
+
+In App.js:
+	
+    // prop wordGuesed > should be wordGuessed (double s)
+    // in GameOver props.wordGuessed doesnt exist if 1 s and will return false
+    // or you could change wordGuessed (in GameOver.js line 21) to wordGuesed, but that would be bad spelling
+
+Of course I checked if I got correct loseResult and winResult
+
+----------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------
+
+HangMan exercise 2:
+
+Because the text input doesnt show in guessed letters or the word self, 
+I started by looking at TextInput.js.
+hen I traced down where TextInput came from and which props etc.
+I saw the prop change={chosenLetterHandler}, so I went looking for this.
+The chosenLetterHandler was located in AppContainer.
+Inside chosenLetterHandler I placed a console.log to check if the input showed up in the console and it did.
+Then I looked at guessLetterHandler, because that was the next action on submitting the form.
+This was also located in AppContainer.
+When reading through guessLetterHandler I discovered a spelling mistake:
+const newGuessedLetters = [...this.state.guesedLetters];
+this.state.guesedLetters doesnt exist and should be ...guessedLetters double ss
+
+solution:
+
+AppContainer.js line 51 > changed [...this.state.guesedLetters] into [...this.state.guessedLetters]
+
+played the game, winning and loosing and guessing, all is working
+
+--------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------
+
+HangMan exercise 3:
+
+Problem that the game is won when started.
+I started looking at what triggers the game ending (winning or loosing).
+So I started in GameOver.js
+My logic was that in GameOver we get winResult when wordGuessed is true.
+So wordGuessed is/becomes already true at starting the game.
+Nothing strange in GameOver, traced GameOver component back to App.js.
+In App.js I looked at function wordGuessed.
+First I placed console.logs and discovered that remaining variable (array) didnt have anything in it on start.
+But remaining should have all the letters of word, when there are no guessedLetters.
+So remaining.length === 0 automaticely becomes true and then the game is won.
+The mistake was at initializing the variable remaining:
+
+  let remaining = word.filter(letter => {
+    // If the letter is guessed return false (we want to remove that then)
+    console.log('guessedLetters remaining', guessedLetters.includes(letter)) // checking true or false
+    return guessedLetters.includes(letter) // forgot ! > make it: !guessedLetters.includes(letter) 
+  }
+
+There are no guessedLetters at start, but even if there was 1 letter guessed,
+the word.filter SHOULD return every letter of the word EXCEPT the guessedLetters.
+But now with 0 guessedLetters, guessedLetters.includes(letter) is false on every letter > filter returns nothing
+remaining.length becomes 0
+Even with 1 guessed letter it would return only the guessed letter, not the remaining letters of word, 
+then you could never win the game, because remaining.length will never be 0. Even when guessing all letters.
+But because the game starts with 0 guessedLetters, remaining.length becomes 0 and you win and can never make a guess. 
+
+solution: 
+change guessedLetters.includes(letter) into !guessedLetters.includes(letter) (in App.js > wordGuessed
+Now with no guessedLetters, word.filter returns every letter from word that is not in guessedLetters (which is every letter)
+With 1 guessedLetter filter returns every letter from word EXCEPT guessedLetters, etc.
+When all the letters of word are in guessedLetters, filter returns nothing (empty array)
+remaining.length becomes 0 and game is won.
+
+After this change everything worked
+
+-----------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
+
+
+HangMan exercise 4:
+
+Problem: With no letter in input, when clicking button, it will cost a guess.
+My logic is that when there is no input, but you submit the form (by clicking the button),
+the game still gets an input (empty string?). So it counts as a guess.
+
+So I first looked at TextInput at the onSubmit, traced it to App.js.
+In App.js I traced submit prop from TextInput back to guesLetterHandler in AppContainer.js.
+In guesLetterHandler I saw that there was no filtering on empty strings.
+I placed console.logs to see the input and also logged true or false depending on input:
+
+    const { currentChosenLetter: chosenLetter } = this.state // less typing/repeating for the console.logs (in my head)
+    const newGuessedLetters = [...this.state.guessedLetters];
+    console.log('input', chosenLetter) // nothing if empty
+    console.log('input as boolean: ', chosenLetter ? true : false) true when letter, false when empty string
+
+Solution: I put an if statement in guessLetterHandler to filter between empty string and a string containing a letter:
+
+    if (chosenLetter) { // added
+    newGuessedLetters.push(this.state.currentChosenLetter)
+    this.setState({
+      guessedLetters: newGuessedLetters,
+      currentChosenLetter: ""
+    });
+    event.preventDefault();
+    } else { // added
+      event.preventDefault() // added
+    } // added
+
+So now when there is an empty string (no input), it goes to and does only event.preventDefault
+So it does nothing, and you still have all guesses
+
+---------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
+
+HangMan exercise 5:
+
+problem: you can cjoose wrong letter multiple times and loose turns.
+
+My Logic: 
+
+The game should check if the input (currentChosenLetter) is already in the list of guessedLetters,
+and only update state and put letter in guessedLetters if not there already. 
+Else do nothing but event.preventdefault() and reset currentChosenLetter.
+Guessed letters are handled in guesLetterHandler in AppContainer.js
+There I made a boolean alreadyChosen which checks if the currentChosenLetter is already in guessedLetters from the state.
+If it is, it returns true, otherwise it returns false.
+Then in the if statement I added '&& !alreadyChosen' to the condition.
+!alreadyChosen > alreadyChosen must be false to preceed with the action coupled to this condition.
+
+Solution in AppContainer in guesLetterHandler:
+
+  guessLetterHandler = event => {
+    const inputGiven = this.state.currentChosenLetter.length > 0;
+    const { currentChosenLetter, guessedLetters } = this.state // added to avoid this.state in next line
+    const alreadyChosen = guessedLetters.includes(currentChosenLetter) // added, will be true or false
+    console.log('alreadyChosen: ', alreadyChosen)  // added for checking
+    if (inputGiven && !alreadyChosen) {   // added boolean alreadyChosen, here it must be false to setState of guessedLetters
+      const newGuessedLetters = [...this.state.guessedLetters];
+      newGuessedLetters.push(this.state.currentChosenLetter);
+      this.setState({
+        guessedLetters: newGuessedLetters
+      });
+    }
+    this.setState({ currentChosenLetter: "" });
+    event.preventDefault();
+  };
+
+
+
+
+
+
+
+	
